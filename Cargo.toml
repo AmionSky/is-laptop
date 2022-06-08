@@ -1,0 +1,11 @@
+[package]
+name = "is-laptop"
+description = "A rust crate for checking if the device is a laptop or not"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/AmionSky/is-laptop"
+
+[dependencies]
+serde = { version = "1.0.0", features = ["derive"] }
+wmi = "0.9"
