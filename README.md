@@ -5,6 +5,7 @@ A rust crate for checking if the device is a laptop or not.
 ## Supported platforms
 
 * Windows _(query through WMI)_
+* Linux _(check acpi for lid)_
 
 ## Usage
 
