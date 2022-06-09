@@ -1,35 +1,75 @@
-use serde::Deserialize;
+use regex::Regex;
 use std::error::Error;
-use wmi::{COMLibrary, WMIConnection};
+use std::ptr::null;
+use windows::Win32::System::Com::{
+    CoCreateInstance, CoInitialize, CoInitializeSecurity, CoUninitialize, CLSCTX_INPROC_SERVER,
+    CLSCTX_LOCAL_SERVER, EOAC_NONE, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE,
+};
+use windows::Win32::System::Wmi::{
+    IWbemLocator, WbemLocator, WBEM_FLAG_FORWARD_ONLY, WBEM_FLAG_NO_FLAVORS, WBEM_NO_WAIT,
+};
 
 const LAPTOP: u16 = 9;
 const NOTEBOOK: u16 = 10;
 
 pub(crate) fn check() -> bool {
-    if let Ok(chassis) = get_case_types() {
-        return chassis.iter().any(|c| *c == LAPTOP || *c == NOTEBOOK);
+    if let Ok(chassis) = unsafe { query() } {
+        return chassis == LAPTOP || chassis == NOTEBOOK;
     }
     false
 }
 
-#[derive(Deserialize)]
-#[allow(non_camel_case_types)]
-#[allow(non_snake_case)]
-struct Win32_SystemEnclosure {
-    pub ChassisTypes: Vec<u16>,
+unsafe fn query() -> Result<u16, Box<dyn Error>> {
+    CoInitialize(null())?;
+    let result = run_query();
+    CoUninitialize();
+    result
 }
 
-fn get_case_types() -> Result<Vec<u16>, Box<dyn Error>> {
-    // Init wmi
-    let com_con = COMLibrary::new()?;
-    let wmi_con = WMIConnection::new(com_con.into())?;
+unsafe fn run_query() -> Result<u16, Box<dyn Error>> {
+    CoInitializeSecurity(
+        None,
+        -1,
+        null(),
+        null(),
+        RPC_C_AUTHN_LEVEL_DEFAULT,
+        RPC_C_IMP_LEVEL_IMPERSONATE,
+        null(),
+        EOAC_NONE,
+        null(),
+    )?;
 
-    // Query result
-    let mut results: Vec<Win32_SystemEnclosure> = wmi_con.query()?;
-    if results.is_empty() {
-        return Err("Query has no result".into());
+    let wbem_locator: IWbemLocator = CoCreateInstance(
+        &WbemLocator,
+        None,
+        CLSCTX_INPROC_SERVER | CLSCTX_LOCAL_SERVER,
+    )?;
+
+    let wbem_service =
+        wbem_locator.ConnectServer("root\\CIMV2", None, None, None, 0, None, None)?;
+
+    let query = wbem_service.ExecQuery(
+        "WQL",
+        "SELECT ChassisTypes FROM Win32_SystemEnclosure",
+        WBEM_FLAG_FORWARD_ONLY.0,
+        None,
+    )?;
+
+    let mut rnum = 0;
+    let mut objs = vec![None];
+    let result = query.Next(WBEM_NO_WAIT.0, &mut objs, &mut rnum);
+
+    if result.is_ok() && rnum > 0 {
+        if let Some(qres) = &objs[0] {
+            let text = qres.GetObjectText(WBEM_FLAG_NO_FLAVORS.0)?.to_string();
+            let re = Regex::new(r"ChassisTypes.*(\d+)")?;
+            if let Some(caps) = re.captures(&text) {
+                if let Some(val) = caps.get(1) {
+                    return Ok(val.as_str().parse()?);
+                }
+            }
+        }
     }
 
-    // Extract the chassis vector
-    Ok(std::mem::take(&mut results[0].ChassisTypes))
+    Err("Failed to get ChassisTypes".into())
 }

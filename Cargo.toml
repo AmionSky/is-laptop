@@ -1,11 +1,17 @@
 [package]
 name = "is-laptop"
 description = "A rust crate for checking if the device is a laptop or not"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/AmionSky/is-laptop"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-serde = { version = "1.0.0", features = ["derive"] }
-wmi = "0.9"
+regex = "1.0.0"
+windows = { version = "0.37.0", features = [
+    "alloc",
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_System_Wmi",
+    "Win32_Security",
+] }
