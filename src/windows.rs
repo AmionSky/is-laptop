@@ -1,6 +1,7 @@
 use regex::Regex;
 use std::error::Error;
 use std::ptr::null;
+use windows::Win32::Foundation::BSTR;
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitialize, CoInitializeSecurity, CoUninitialize, CLSCTX_INPROC_SERVER,
     CLSCTX_LOCAL_SERVER, EOAC_NONE, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE,
@@ -46,11 +47,11 @@ unsafe fn run_query() -> Result<u16, Box<dyn Error>> {
     )?;
 
     let wbem_service =
-        wbem_locator.ConnectServer("root\\CIMV2", None, None, None, 0, None, None)?;
+        wbem_locator.ConnectServer(&BSTR::from("root\\CIMV2"), None, None, None, 0, None, None)?;
 
     let query = wbem_service.ExecQuery(
-        "WQL",
-        "SELECT ChassisTypes FROM Win32_SystemEnclosure",
+        &BSTR::from("WQL"),
+        &BSTR::from("SELECT ChassisTypes FROM Win32_SystemEnclosure"),
         WBEM_FLAG_FORWARD_ONLY.0,
         None,
     )?;
