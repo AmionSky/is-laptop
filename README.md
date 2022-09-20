@@ -19,7 +19,7 @@ is-laptop = "*"
 Check if the device is a laptop
 
 ```rust
-let isLaptop: bool = is_laptop::check();
+let laptop: bool = is_laptop::check();
 ```
 
 ## License
