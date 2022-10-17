@@ -1,7 +1,6 @@
 use regex::Regex;
 use std::error::Error;
-use std::ptr::null;
-use windows::Win32::Foundation::BSTR;
+use windows::core::BSTR;
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitialize, CoInitializeSecurity, CoUninitialize, CLSCTX_INPROC_SERVER,
     CLSCTX_LOCAL_SERVER, EOAC_NONE, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE,
@@ -21,7 +20,7 @@ pub(crate) fn check() -> bool {
 }
 
 unsafe fn query() -> Result<u16, Box<dyn Error>> {
-    CoInitialize(null())?;
+    CoInitialize(None)?;
     let result = run_query();
     CoUninitialize();
     result
@@ -31,13 +30,13 @@ unsafe fn run_query() -> Result<u16, Box<dyn Error>> {
     CoInitializeSecurity(
         None,
         -1,
-        null(),
-        null(),
+        None,
+        None,
         RPC_C_AUTHN_LEVEL_DEFAULT,
         RPC_C_IMP_LEVEL_IMPERSONATE,
-        null(),
+        None,
         EOAC_NONE,
-        null(),
+        None,
     )?;
 
     let wbem_locator: IWbemLocator = CoCreateInstance(
@@ -46,19 +45,26 @@ unsafe fn run_query() -> Result<u16, Box<dyn Error>> {
         CLSCTX_INPROC_SERVER | CLSCTX_LOCAL_SERVER,
     )?;
 
-    let wbem_service =
-        wbem_locator.ConnectServer(&BSTR::from("root\\CIMV2"), None, None, None, 0, None, None)?;
+    let wbem_service = wbem_locator.ConnectServer(
+        &BSTR::from("root\\CIMV2"),
+        &BSTR::new(),
+        &BSTR::new(),
+        &BSTR::new(),
+        0,
+        &BSTR::new(),
+        None,
+    )?;
 
     let query = wbem_service.ExecQuery(
         &BSTR::from("WQL"),
         &BSTR::from("SELECT ChassisTypes FROM Win32_SystemEnclosure"),
-        WBEM_FLAG_FORWARD_ONLY.0,
+        WBEM_FLAG_FORWARD_ONLY,
         None,
     )?;
 
     let mut rnum = 0;
     let mut objs = vec![None];
-    let result = query.Next(WBEM_NO_WAIT.0, &mut objs, &mut rnum);
+    let result = query.Next(WBEM_NO_WAIT, &mut objs, &mut rnum);
 
     if result.is_ok() && rnum > 0 {
         if let Some(qres) = &objs[0] {
